@@ -16,7 +16,7 @@ router = APIRouter()
 @router.get("/collection", response_model=RankingResponse)
 async def get_collection_ranking(
     limit: int = 100,
-    current_user: User = None,
+    current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
@@ -67,7 +67,7 @@ async def get_collection_ranking(
 @router.get("/cleanup", response_model=RankingResponse)
 async def get_cleanup_ranking(
     limit: int = 100,
-    current_user: User = None,
+    current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
@@ -120,7 +120,7 @@ async def get_cleanup_ranking(
 @router.get("/points", response_model=RankingResponse)
 async def get_points_ranking(
     limit: int = 100,
-    current_user: User = None,
+    current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
