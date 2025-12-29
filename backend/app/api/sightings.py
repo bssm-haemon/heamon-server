@@ -8,8 +8,7 @@ from sqlalchemy import desc
 from app.api.deps import get_db, get_current_user, get_admin_user
 from app.models.user import User
 from app.models.sighting import Sighting
-from app.models.creature import Creature
-from app.models.user_creature import UserCreature
+from app.models.user_creature import UserCollection
 from app.schemas.sighting import (
     SightingCreate, SightingResponse, SightingListResponse,
     SightingStatusUpdate, SightingDetailResponse
@@ -17,6 +16,8 @@ from app.schemas.sighting import (
 from app.services.storage import storage_service
 from app.services.image_hash import image_hash_service
 from app.services.point_service import point_service
+from app.services.static_creatures import RARITY_BY_ID, NAME_BY_ID, ID_BY_NAME, ID_BY_NAME_LOWER
+from app.services.badge_awarder import award_collection_badges
 
 
 router = APIRouter()
@@ -28,7 +29,7 @@ async def create_sighting(
     longitude: float = Form(...),
     location_name: Optional[str] = Form(None),
     memo: Optional[str] = Form(None),
-    creature_id: Optional[UUID] = Form(None),
+    creature_id: Optional[str] = Form(None),
     ai_suggestion: Optional[str] = Form(None),
     ai_confidence: Optional[float] = Form(None),
     photo: UploadFile = File(...),
@@ -44,11 +45,23 @@ async def create_sighting(
     # 이미지 읽기
     image_bytes = await photo.read()
 
+    # creature_id 없으면 ai_suggestion으로 정적 ID 추론
+    if not creature_id and ai_suggestion:
+        creature_id = ID_BY_NAME.get(ai_suggestion) or ID_BY_NAME_LOWER.get(ai_suggestion.lower())
+
+    if creature_id and creature_id not in RARITY_BY_ID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="존재하지 않는 creature_id 입니다"
+        )
+
     # 이미지 해시 계산
     image_hash = image_hash_service.compute_hash(image_bytes)
 
     # Supabase Storage에 업로드
     photo_url = await storage_service.upload_image(image_bytes, folder="sightings")
+
+    status_value = "approved" if creature_id else "pending"
 
     # 목격 기록 생성
     sighting = Sighting(
@@ -62,12 +75,39 @@ async def create_sighting(
         image_hash=image_hash,
         ai_suggestion=ai_suggestion,
         ai_confidence=ai_confidence,
-        status="pending"
+        status=status_value
     )
 
     db.add(sighting)
     db.commit()
     db.refresh(sighting)
+
+    # 자동 도감 등록 및 포인트 지급 (creature_id가 있는 경우)
+    if creature_id:
+        rarity = RARITY_BY_ID.get(creature_id, "common")
+        points_result = point_service.calculate_sighting_points(
+            db, str(current_user.id), creature_id, rarity
+        )
+
+        sighting.points_earned = points_result["total_points"]
+        point_service.add_points(db, str(current_user.id), points_result["total_points"])
+        db.commit()
+
+        existing = db.query(UserCollection).filter(
+            UserCollection.user_id == current_user.id,
+            UserCollection.creature_id == creature_id
+        ).first()
+        if not existing:
+            user_creature = UserCollection(
+                user_id=current_user.id,
+                creature_id=creature_id,
+                first_sighting_id=sighting.id
+            )
+            db.add(user_creature)
+            db.commit()
+
+        # 도감 뱃지 지급
+        award_collection_badges(db, current_user.id)
 
     return sighting
 
@@ -120,10 +160,6 @@ async def get_sighting(
         )
 
     user = db.query(User).filter(User.id == sighting.user_id).first()
-    creature = None
-    if sighting.creature_id:
-        creature = db.query(Creature).filter(Creature.id == sighting.creature_id).first()
-
     return SightingDetailResponse(
         id=sighting.id,
         user_id=sighting.user_id,
@@ -140,7 +176,7 @@ async def get_sighting(
         points_earned=sighting.points_earned,
         created_at=sighting.created_at,
         user_nickname=user.nickname if user else None,
-        creature_name=creature.name if creature else None
+        creature_name=NAME_BY_ID.get(sighting.creature_id)
     )
 
 
@@ -169,42 +205,48 @@ async def update_sighting_status(
             detail="이미 처리된 목격 기록입니다"
         )
 
+    if status_update.status not in ["approved", "rejected"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="잘못된 상태입니다"
+        )
+
     sighting.status = status_update.status
 
     if status_update.status == "approved":
         # 생물 확정
         if status_update.creature_id:
+            if status_update.creature_id not in RARITY_BY_ID:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="존재하지 않는 creature_id 입니다"
+                )
             sighting.creature_id = status_update.creature_id
 
         if sighting.creature_id:
-            creature = db.query(Creature).filter(
-                Creature.id == sighting.creature_id
+            rarity = RARITY_BY_ID.get(sighting.creature_id, "common")
+            points_result = point_service.calculate_sighting_points(
+                db, str(sighting.user_id), str(sighting.creature_id), rarity
+            )
+
+            sighting.points_earned = points_result["total_points"]
+
+            # 유저 포인트 추가
+            point_service.add_points(db, str(sighting.user_id), points_result["total_points"])
+
+            # 도감에 추가 (첫 발견인 경우)
+            existing = db.query(UserCollection).filter(
+                UserCollection.user_id == sighting.user_id,
+                UserCollection.creature_id == sighting.creature_id
             ).first()
 
-            if creature:
-                # 포인트 계산
-                points_result = point_service.calculate_sighting_points(
-                    db, str(sighting.user_id), str(sighting.creature_id), creature.rarity
+            if not existing:
+                user_creature = UserCollection(
+                    user_id=sighting.user_id,
+                    creature_id=sighting.creature_id,
+                    first_sighting_id=sighting.id
                 )
-
-                sighting.points_earned = points_result["total_points"]
-
-                # 유저 포인트 추가
-                point_service.add_points(db, str(sighting.user_id), points_result["total_points"])
-
-                # 도감에 추가 (첫 발견인 경우)
-                existing = db.query(UserCreature).filter(
-                    UserCreature.user_id == sighting.user_id,
-                    UserCreature.creature_id == sighting.creature_id
-                ).first()
-
-                if not existing:
-                    user_creature = UserCreature(
-                        user_id=sighting.user_id,
-                        creature_id=sighting.creature_id,
-                        first_sighting_id=sighting.id
-                    )
-                    db.add(user_creature)
+                db.add(user_creature)
 
     db.commit()
     db.refresh(sighting)

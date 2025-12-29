@@ -6,7 +6,7 @@ from sqlalchemy import func, desc
 from app.api.deps import get_db, get_current_user_optional
 from app.models.user import User
 from app.models.cleanup import Cleanup
-from app.models.user_creature import UserCreature
+from app.models.user_creature import UserCollection
 from app.schemas.ranking import RankingEntry, RankingResponse
 
 
@@ -25,9 +25,9 @@ async def get_collection_ranking(
     """
     # 유저별 발견 수 집계
     subquery = db.query(
-        UserCreature.user_id,
-        func.count(UserCreature.creature_id).label("count")
-    ).group_by(UserCreature.user_id).subquery()
+        UserCollection.user_id,
+        func.count(UserCollection.creature_id).label("count")
+    ).group_by(UserCollection.user_id).subquery()
 
     results = db.query(
         User.id,
