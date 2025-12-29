@@ -25,7 +25,9 @@ app = FastAPI(
     title="해몬도감 API",
     description="해양 생물 도감 & 쓰레기 수거 인증 앱 API",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # CORS 설정
