@@ -1,0 +1,34 @@
+# FastAPI
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+
+# Database
+sqlalchemy>=2.0.36
+psycopg[binary]>=3.2.3
+alembic>=1.14.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+httpx>=0.28.0
+
+# Settings
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+email-validator>=2.2.0
+
+# AI / Image Processing
+transformers>=4.48.0
+torch>=2.9.1
+Pillow>=11.1.0
+imagehash>=4.3.1
+
+# Storage
+supabase>=2.11.0
+
+# Testing
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+
+# Development
+python-dotenv>=1.0.0
