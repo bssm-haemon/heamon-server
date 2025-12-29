@@ -13,7 +13,6 @@ class Badge(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
-    icon_url = Column(String, nullable=True)
     condition_type = Column(String(30), nullable=True)  # sighting_count, cleanup_count, streak...
     condition_value = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

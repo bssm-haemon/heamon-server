@@ -7,6 +7,7 @@ from app.api.deps import get_db, get_current_user, get_admin_user
 from app.models.user import User
 from app.models.badge import Badge, UserBadge
 from app.schemas.badge import BadgeCreate, BadgeResponse, UserBadgeResponse, BadgeListResponse
+from app.services.static_badges import STATIC_BADGES
 
 
 router = APIRouter()
@@ -15,6 +16,9 @@ router = APIRouter()
 @router.get("", response_model=BadgeListResponse)
 async def list_badges(db: Session = Depends(get_db)):
     """전체 뱃지 목록"""
+    from app.services.badge_awarder import _seed_static_badges
+
+    _seed_static_badges(db)
     badges = db.query(Badge).order_by(Badge.name).all()
     return BadgeListResponse(
         badges=badges,
@@ -47,23 +51,13 @@ async def get_my_badges(
 @router.post("", response_model=BadgeResponse, status_code=status.HTTP_201_CREATED)
 async def create_badge(
     badge_data: BadgeCreate,
-    admin_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """뱃지 등록 (관리자)"""
-    badge = Badge(
-        name=badge_data.name,
-        description=badge_data.description,
-        icon_url=badge_data.icon_url,
-        condition_type=badge_data.condition_type,
-        condition_value=badge_data.condition_value
+    """정적 뱃지로 관리 → 생성 비활성화"""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="뱃지는 정적으로 관리됩니다"
     )
-
-    db.add(badge)
-    db.commit()
-    db.refresh(badge)
-
-    return badge
 
 
 @router.post("/{badge_id}/award/{user_id}")
