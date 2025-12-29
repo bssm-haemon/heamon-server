@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Auth
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
-    GOOGLE_REDIRECT_URI: str = "http://localhost:3000/login"
+    GOOGLE_REDIRECT_URI: str = "https://haemon-app.vercel.app/login"
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     # App
-    FRONTEND_URL: str = "http://localhost:3000"
+    FRONTEND_URL: str = "https://haemon-app.vercel.app"
     DEBUG: bool = False
 
     class Config:
