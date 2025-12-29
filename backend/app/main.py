@@ -11,7 +11,12 @@ from app.api import api_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 시작 시 테이블 생성 (개발용)
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database connected and tables created")
+    except Exception as e:
+        print(f"⚠️  Database connection failed: {e}")
+        print("⚠️  Server will start without database connection")
     yield
     # 종료 시 정리 작업
 
