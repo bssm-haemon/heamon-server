@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from jose import jwt
 from pydantic import BaseModel
 import httpx
+import logging
 
 from app.api.deps import get_db, get_current_user
 from app.config import settings
@@ -13,10 +14,11 @@ from app.schemas.user import UserResponse, TokenResponse
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class GoogleLoginRequest(BaseModel):
-    id_token: str
+    code: str
 
 
 class GoogleUserInfo(BaseModel):
@@ -71,6 +73,50 @@ async def verify_google_token(id_token: str) -> GoogleUserInfo:
         )
 
 
+async def exchange_authorization_code(code: str) -> str:
+    """Google Authorization Code를 ID 토큰으로 교환"""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": settings.GOOGLE_CLIENT_ID,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        if response.status_code != 200:
+            try:
+                error_body = response.json()
+            except Exception:
+                error_body = response.text
+
+            logger.warning(
+                "Google token exchange failed: status=%s body=%s",
+                response.status_code,
+                error_body,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "message": "Google 인증 코드가 유효하지 않습니다",
+                    "google_response": error_body,
+                }
+            )
+
+        tokens = response.json()
+        id_token = tokens.get("id_token")
+        if not id_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Google 토큰을 가져올 수 없습니다"
+            )
+        return id_token
+
+
 @router.post("/google", response_model=TokenResponse)
 async def google_login(
     request: GoogleLoginRequest,
@@ -81,8 +127,19 @@ async def google_login(
     - Google ID 토큰을 검증하고 JWT 발급
     - 신규 유저인 경우 자동 회원가입
     """
-    # Google 토큰 검증
-    google_user = await verify_google_token(request.id_token)
+    # 개발 모드에서는 외부 인증 없이 테스트 계정 허용
+    if settings.DEBUG and request.code.startswith("dev:"):
+        email = request.code.split("dev:", 1)[1] or "dev@local.test"
+        google_user = GoogleUserInfo(
+            email=email,
+            name=email.split("@")[0],
+            picture=None,
+            sub="dev-user"
+        )
+    else:
+        # Authorization Code를 ID 토큰으로 교환 후 검증
+        id_token = await exchange_authorization_code(request.code)
+        google_user = await verify_google_token(id_token)
 
     # 기존 유저 조회
     user = db.query(User).filter(User.email == google_user.email).first()

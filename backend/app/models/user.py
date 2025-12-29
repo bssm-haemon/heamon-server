@@ -25,4 +25,4 @@ class User(Base):
     sightings = relationship("Sighting", back_populates="user", cascade="all, delete-orphan")
     cleanups = relationship("Cleanup", back_populates="user", cascade="all, delete-orphan")
     user_badges = relationship("UserBadge", back_populates="user", cascade="all, delete-orphan")
-    user_creatures = relationship("UserCreature", back_populates="user", cascade="all, delete-orphan")
+    user_collections = relationship("UserCollection", back_populates="user", cascade="all, delete-orphan")

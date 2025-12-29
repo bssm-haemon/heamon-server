@@ -7,7 +7,7 @@ from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.models.sighting import Sighting
 from app.models.cleanup import Cleanup
-from app.models.user_creature import UserCreature
+from app.models.user_creature import UserCollection
 from app.models.badge import UserBadge
 from app.schemas.user import UserResponse, UserUpdate, UserProfile
 
@@ -31,8 +31,8 @@ async def get_my_profile(
         Cleanup.status == "approved"
     ).count()
 
-    creature_count = db.query(UserCreature).filter(
-        UserCreature.user_id == current_user.id
+    creature_count = db.query(UserCollection).filter(
+        UserCollection.user_id == current_user.id
     ).count()
 
     badge_count = db.query(UserBadge).filter(
@@ -95,8 +95,8 @@ async def get_user_profile(
         Cleanup.status == "approved"
     ).count()
 
-    creature_count = db.query(UserCreature).filter(
-        UserCreature.user_id == user.id
+    creature_count = db.query(UserCollection).filter(
+        UserCollection.user_id == user.id
     ).count()
 
     badge_count = db.query(UserBadge).filter(
