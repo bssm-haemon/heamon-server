@@ -3,9 +3,10 @@
 - Perceptual Hash로 유사 이미지 탐지
 - 인터넷 다운로드 이미지 필터링
 """
-import imagehash
-from PIL import Image
 import io
+import imagehash
+from PIL import Image, UnidentifiedImageError
+from fastapi import HTTPException, status
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -18,7 +19,20 @@ class ImageHashService:
 
     def compute_hash(self, image_bytes: bytes) -> str:
         """이미지 해시 계산"""
-        image = Image.open(io.BytesIO(image_bytes))
+        try:
+            image = Image.open(io.BytesIO(image_bytes))
+        except UnidentifiedImageError:
+            # HEIC 등 지원되지 않는 포맷을 위해 pillow-heif가 있으면 시도
+            try:
+                from pillow_heif import register_heif_opener
+
+                register_heif_opener()
+                image = Image.open(io.BytesIO(image_bytes))
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="유효하지 않은 이미지 파일입니다. JPEG/PNG 또는 HEIC 지원 패키지(pillow-heif)가 필요합니다."
+                )
         return str(imagehash.phash(image))
 
     def _hamming_distance(self, hash1: str, hash2: str) -> int:

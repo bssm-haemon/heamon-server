@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.models.sighting import Sighting
 from app.models.cleanup import Cleanup
-from app.models.creature import Creature
 from app.schemas.map import SightingMarker, CleanupMarker, HeatmapPoint, MapDataResponse, HeatmapResponse
+from app.services.static_creatures import NAME_BY_ID, RARITY_BY_ID, CATEGORY_BY_ID
 
 
 router = APIRouter()
@@ -34,14 +34,13 @@ async def get_sighting_markers(
 
     markers = []
     for s in sightings:
-        creature = None
-        if s.creature_id:
-            creature = db.query(Creature).filter(Creature.id == s.creature_id).first()
-
         # 필터링
-        if category and creature and creature.category != category:
+        creature_category = CATEGORY_BY_ID.get(s.creature_id) if s.creature_id else None
+        creature_rarity = RARITY_BY_ID.get(s.creature_id) if s.creature_id else None
+
+        if category and creature_category and creature_category != category:
             continue
-        if rarity and creature and creature.rarity != rarity:
+        if rarity and creature_rarity and creature_rarity != rarity:
             continue
 
         markers.append(SightingMarker(
@@ -50,8 +49,9 @@ async def get_sighting_markers(
             longitude=s.longitude,
             type="sighting",
             created_at=s.created_at,
-            creature_name=creature.name if creature else s.ai_suggestion,
-            rarity=creature.rarity if creature else None,
+            location_name=s.location_name,
+            creature_name=NAME_BY_ID.get(s.creature_id, s.ai_suggestion),
+            rarity=creature_rarity,
             photo_url=s.photo_url
         ))
 
@@ -89,6 +89,7 @@ async def get_cleanup_markers(
             longitude=c.longitude,
             type="cleanup",
             created_at=c.created_at,
+            location_name=c.location_name,
             trash_type=c.trash_type,
             amount=c.amount
         ))
@@ -114,11 +115,8 @@ async def get_heatmap(
         sightings = db.query(Sighting).filter(Sighting.status == "approved").all()
         for s in sightings:
             # 희귀도에 따라 가중치 부여
-            weight = 1.0
-            if s.creature_id:
-                creature = db.query(Creature).filter(Creature.id == s.creature_id).first()
-                if creature:
-                    weight = {"common": 1.0, "rare": 2.0, "legendary": 3.0}.get(creature.rarity, 1.0)
+            rarity = RARITY_BY_ID.get(s.creature_id) if s.creature_id else None
+            weight = {"common": 1.0, "rare": 2.0, "legendary": 3.0}.get(rarity, 1.0)
 
             points.append(HeatmapPoint(
                 latitude=s.latitude,

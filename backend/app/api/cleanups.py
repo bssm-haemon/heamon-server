@@ -40,9 +40,13 @@ async def create_cleanup(
     before_bytes = await before_photo.read()
     after_bytes = await after_photo.read()
 
-    # 이미지 해시 계산
-    before_hash = image_hash_service.compute_hash(before_bytes)
-    after_hash = image_hash_service.compute_hash(after_bytes)
+    # 이미지 해시 계산 (실패해도 업로드는 진행)
+    try:
+        before_hash = image_hash_service.compute_hash(before_bytes)
+        after_hash = image_hash_service.compute_hash(after_bytes)
+    except Exception:
+        before_hash = None
+        after_hash = None
 
     # Supabase Storage에 업로드
     before_url = await storage_service.upload_image(before_bytes, folder="cleanups/before")

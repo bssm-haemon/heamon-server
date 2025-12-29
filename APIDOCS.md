@@ -26,14 +26,26 @@
 ## 인증 (Auth)
 
 ### POST `/auth/google`
-구글 로그인
+구글 로그인 (OAuth 2.0 Authorization Code Flow)
 
 **Request Body**
 ```json
 {
-  "id_token": "Google OAuth ID 토큰"
+  "code": "Google OAuth Authorization Code"
 }
 ```
+
+**백엔드 처리 로직**
+1. 프론트엔드로부터 `code`를 전달받음
+2. Google Token Endpoint(`https://oauth2.googleapis.com/token`)에 아래 파라미터로 POST
+   - `code`: 전달받은 authorization code
+   - `client_id`: 환경변수 `GOOGLE_CLIENT_ID`
+   - `client_secret`: 환경변수 `GOOGLE_CLIENT_SECRET`
+   - `redirect_uri`: 환경변수 `GOOGLE_REDIRECT_URI` (예: `http://localhost:3000/login`)
+   - `grant_type`: `authorization_code`
+3. 응답으로 받은 `id_token`을 검증하고 유저 정보를 DB에 저장/업데이트 후 JWT 발급
+
+> 개발 모드(`DEBUG=true`)에서는 구글 호출 없이 `{"code": "dev:{email}"}` 형식으로 로그인할 수 있습니다. 예) `dev:user@local.test`
 
 **Response** `200 OK`
 ```json
@@ -180,7 +192,7 @@
 | longitude | float | O | 경도 |
 | location_name | string | X | 장소명 |
 | memo | string | X | 메모 |
-| creature_id | uuid | X | 생물 ID (선택 시) |
+| creature_id | string | X | 정적 도감 ID (예: `creature-009`) |
 | ai_suggestion | string | X | AI 추천 생물명 |
 | ai_confidence | float | X | AI 신뢰도 (0~1) |
 
@@ -237,7 +249,7 @@
 {
   "id": "uuid",
   "user_id": "uuid",
-  "creature_id": "uuid",
+  "creature_id": "creature-009",
   "photo_url": "https://...",
   "latitude": 37.5665,
   "longitude": 126.9780,
@@ -265,7 +277,7 @@
 ```json
 {
   "status": "approved",
-  "creature_id": "uuid"
+  "creature_id": "creature-009"
 }
 ```
 
@@ -385,46 +397,22 @@
 ## 생물 도감 (Creatures)
 
 ### GET `/creatures`
-전체 생물 도감
-
-**Query Parameters**
-| 파라미터 | 타입 | 설명 |
-|----------|------|------|
-| category | string | 카테고리 필터 |
-| rarity | string | 희귀도 필터 |
-
-**category 옵션**
-- `cetacean`: 고래류
-- `turtle`: 거북류
-- `pinniped`: 기각류
-- `fish`: 어류
-- `jellyfish`: 해파리류
-- `crustacean`: 갑각류
-- `mollusk`: 연체류
-- `bird`: 조류
-
-**rarity 옵션**
-- `common`: 일반
-- `rare`: 희귀
-- `legendary`: 전설
+정적 도감 안내 (프론트에 데이터 포함)
 
 **Response** `200 OK`
 ```json
 {
+  "message": "생물 데이터는 프론트엔드에 정적으로 포함되어 있습니다.",
+  "total_creatures": 11,
+  "by_rarity": {
+    "common": 3,
+    "rare": 5,
+    "legendary": 3
+  },
   "creatures": [
-    {
-      "id": "uuid",
-      "name": "돌고래",
-      "name_en": "Dolphin",
-      "category": "cetacean",
-      "description": "지능이 높은 해양 포유류",
-      "image_url": "https://...",
-      "rarity": "rare",
-      "points": 80,
-      "created_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "total": 30
+    { "id": "creature-001", "name": "고등어", "rarity": "common" },
+    { "id": "creature-009", "name": "돌고래", "rarity": "legendary" }
+  ]
 }
 ```
 
@@ -487,13 +475,7 @@
 {
   "collection": [
     {
-      "creature": {
-        "id": "uuid",
-        "name": "돌고래",
-        "category": "cetacean",
-        "rarity": "rare",
-        ...
-      },
+      "creature_id": "creature-009",
       "discovered_at": "2024-01-15T12:00:00Z",
       "first_sighting_id": "uuid"
     }
@@ -512,20 +494,20 @@
 **Response** `200 OK`
 ```json
 {
-  "total_creatures": 30,
+  "total_creatures": 11,
   "discovered_count": 8,
   "completion_rate": 26.67,
   "by_rarity": {
     "common": {
-      "total": 15,
+      "total": 4,
       "discovered": 5
     },
     "rare": {
-      "total": 10,
+      "total": 4,
       "discovered": 2
     },
     "legendary": {
-      "total": 5,
+      "total": 3,
       "discovered": 1
     }
   }
@@ -537,20 +519,19 @@
 ## 뱃지 (Badges)
 
 ### GET `/badges`
-전체 뱃지 목록
+전체 뱃지 목록 (정적)
 
 **Response** `200 OK`
 ```json
 {
   "badges": [
     {
-      "id": "uuid",
-      "name": "첫 발견",
-      "description": "첫 번째 생물을 발견했습니다",
-      "icon_url": "https://...",
-      "condition_type": "sighting_count",
-      "condition_value": 1,
-      "created_at": "2024-01-01T00:00:00Z"
+      "id": "00000000-0000-0000-0000-000000000001",
+      "name": "위대한 여정의 첫걸음",
+      "name_ko": "위대한 여정의 첫걸음",
+      "description": "동물을 1개 발견했습니다",
+      "condition_type": "collection_count",
+      "condition_value": 1
     }
   ],
   "total": 10
@@ -580,20 +561,8 @@
 ---
 
 ### POST `/badges`
-뱃지 등록 (관리자 전용)
-
-**Headers**: `Authorization: Bearer {admin_token}`
-
-**Request Body**
-```json
-{
-  "name": "첫 발견",
-  "description": "첫 번째 생물을 발견했습니다",
-  "icon_url": "https://...",
-  "condition_type": "sighting_count",
-  "condition_value": 1
-}
-```
+정적 관리로 비활성화 (`410 Gone`)  
+뱃지는 고정 ID/조건으로 DB에 삽입되며 아이콘은 프론트에서 관리합니다. 스키마에 `name_ko`가 있으므로 응답에도 포함됩니다.
 
 ---
 
@@ -679,6 +648,7 @@
       "longitude": 126.9780,
       "type": "sighting",
       "created_at": "2024-01-15T12:00:00Z",
+      "location_name": "해운대해수욕장",
       "creature_name": "돌고래",
       "rarity": "rare",
       "photo_url": "https://..."
@@ -710,6 +680,7 @@
       "longitude": 126.9780,
       "type": "cleanup",
       "created_at": "2024-01-15T12:00:00Z",
+      "location_name": "광안리",
       "trash_type": "plastic",
       "amount": "one_bag"
     }
@@ -858,8 +829,6 @@ Before/After 변화 검증
 | 조건 | 보너스 |
 |------|--------|
 | 첫 발견 (도감에 없던 생물) | +20 |
-| 7일 연속 참여 | +200 |
-| 같은 장소 10회 청소 | +100 |
 
 ---
 

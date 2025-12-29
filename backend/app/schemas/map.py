@@ -10,6 +10,7 @@ class MapMarker(BaseModel):
     longitude: float
     type: str  # sighting, cleanup
     created_at: datetime
+    location_name: str | None = None
 
 
 class SightingMarker(MapMarker):
