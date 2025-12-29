@@ -20,6 +20,4 @@ class Creature(Base):
     points = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationships
-    sightings = relationship("Sighting", back_populates="creature")
-    user_creatures = relationship("UserCreature", back_populates="creature")
+    # 현재 정적 데이터로 전환되어 관계는 사용하지 않음

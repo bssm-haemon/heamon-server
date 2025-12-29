@@ -1,13 +1,12 @@
 """유저 도감 (발견 목록)"""
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
-from app.models.creature import Creature
-from app.models.user_creature import UserCreature
-from app.schemas.creature import UserCreatureResponse, CollectionStatsResponse
+from app.models.user_creature import UserCollection
+from app.schemas.creature import CollectionStatsResponse
+from app.services.static_creatures import TOTAL_CREATURES, TOTAL_BY_RARITY, RARITY_BY_ID
 
 
 router = APIRouter()
@@ -21,19 +20,18 @@ async def get_my_collection(
     """
     내 도감 (발견 목록)
     """
-    user_creatures = db.query(UserCreature).filter(
-        UserCreature.user_id == current_user.id
+    user_collections = db.query(UserCollection).filter(
+        UserCollection.user_id == current_user.id
     ).all()
 
-    result = []
-    for uc in user_creatures:
-        creature = db.query(Creature).filter(Creature.id == uc.creature_id).first()
-        if creature:
-            result.append({
-                "creature": creature,
-                "discovered_at": uc.discovered_at,
-                "first_sighting_id": uc.first_sighting_id
-            })
+    result = [
+        {
+            "creature_id": uc.creature_id,
+            "discovered_at": uc.discovered_at,
+            "first_sighting_id": uc.first_sighting_id
+        }
+        for uc in user_collections
+    ]
 
     return {"collection": result, "total": len(result)}
 
@@ -49,37 +47,28 @@ async def get_collection_stats(
     - 발견한 생물 수
     - 희귀도별 통계
     """
-    # 전체 생물 수
-    total_creatures = db.query(Creature).count()
+    discovered = db.query(UserCollection).filter(
+        UserCollection.user_id == current_user.id
+    ).all()
 
-    # 발견한 생물 수
-    discovered_count = db.query(UserCreature).filter(
-        UserCreature.user_id == current_user.id
-    ).count()
+    discovered_ids = {uc.creature_id for uc in discovered}
 
-    # 완성률
-    completion_rate = (discovered_count / total_creatures * 100) if total_creatures > 0 else 0
-
-    # 희귀도별 통계
-    by_rarity = {}
-
+    by_rarity: dict[str, dict[str, int]] = {}
     for rarity in ["common", "rare", "legendary"]:
-        total = db.query(Creature).filter(Creature.rarity == rarity).count()
-
-        discovered = db.query(UserCreature).join(
-            Creature, UserCreature.creature_id == Creature.id
-        ).filter(
-            UserCreature.user_id == current_user.id,
-            Creature.rarity == rarity
-        ).count()
-
+        total = TOTAL_BY_RARITY.get(rarity, 0)
+        discovered_count = len(
+            [cid for cid in discovered_ids if RARITY_BY_ID.get(cid) == rarity]
+        )
         by_rarity[rarity] = {
             "total": total,
-            "discovered": discovered
+            "discovered": discovered_count
         }
 
+    discovered_count = len(discovered_ids)
+    completion_rate = (discovered_count / TOTAL_CREATURES * 100) if TOTAL_CREATURES else 0
+
     return CollectionStatsResponse(
-        total_creatures=total_creatures,
+        total_creatures=TOTAL_CREATURES,
         discovered_count=discovered_count,
         completion_rate=round(completion_rate, 2),
         by_rarity=by_rarity

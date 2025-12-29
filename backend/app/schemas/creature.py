@@ -1,6 +1,5 @@
 """생물 도감 스키마"""
 from datetime import datetime
-from uuid import UUID
 from pydantic import BaseModel
 
 
@@ -18,7 +17,7 @@ class CreatureCreate(CreatureBase):
 
 
 class CreatureResponse(CreatureBase):
-    id: UUID
+    id: str
     image_url: str | None
     created_at: datetime
 
@@ -32,9 +31,9 @@ class CreatureListResponse(BaseModel):
 
 
 class UserCreatureResponse(BaseModel):
-    creature: CreatureResponse
+    creature_id: str
     discovered_at: datetime
-    first_sighting_id: UUID | None
+    first_sighting_id: str | None
 
     class Config:
         from_attributes = True

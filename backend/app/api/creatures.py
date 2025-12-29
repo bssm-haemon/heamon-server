@@ -1,126 +1,56 @@
-"""생물 도감 마스터"""
-from typing import Optional
-from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-
-from app.api.deps import get_db, get_admin_user
-from app.models.user import User
-from app.models.creature import Creature
-from app.schemas.creature import CreatureCreate, CreatureResponse, CreatureListResponse
+"""생물 도감은 프론트 정적 데이터로 관리"""
+from fastapi import APIRouter, HTTPException, status
+from app.services.static_creatures import STATIC_CREATURES, TOTAL_CREATURES, TOTAL_BY_RARITY
 
 
 router = APIRouter()
 
 
-@router.get("", response_model=CreatureListResponse)
-async def list_creatures(
-    category: Optional[str] = None,
-    rarity: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
+@router.get("")
+async def list_creatures():
     """
-    전체 생물 도감
-    - 카테고리/희귀도 필터링
+    생물 도감은 프론트엔드에 정적으로 포함되어 있습니다.
     """
-    query = db.query(Creature)
+    return {
+        "message": "생물 데이터는 프론트엔드에 정적으로 포함되어 있습니다.",
+        "total_creatures": TOTAL_CREATURES,
+        "total": TOTAL_CREATURES,  # 하위 호환
+        "by_rarity": TOTAL_BY_RARITY,
+        "creatures": STATIC_CREATURES,
+    }
 
-    if category:
-        query = query.filter(Creature.category == category)
-    if rarity:
-        query = query.filter(Creature.rarity == rarity)
 
-    creatures = query.order_by(Creature.name).all()
-    total = len(creatures)
+@router.get("/{creature_id}")
+async def get_creature(creature_id: str):
+    """정적 데이터 상세 조회"""
+    creature = next((c for c in STATIC_CREATURES if c["id"] == creature_id), None)
+    if not creature:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="생물을 찾을 수 없습니다"
+        )
+    return creature
 
-    return CreatureListResponse(
-        creatures=creatures,
-        total=total
+
+@router.post("")
+async def create_creature():
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="생물 데이터는 정적으로 관리됩니다"
     )
 
 
-@router.get("/{creature_id}", response_model=CreatureResponse)
-async def get_creature(
-    creature_id: UUID,
-    db: Session = Depends(get_db)
-):
-    """생물 상세"""
-    creature = db.query(Creature).filter(Creature.id == creature_id).first()
-    if not creature:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="생물을 찾을 수 없습니다"
-        )
-
-    return creature
-
-
-@router.post("", response_model=CreatureResponse, status_code=status.HTTP_201_CREATED)
-async def create_creature(
-    creature_data: CreatureCreate,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db)
-):
-    """생물 등록 (관리자)"""
-    creature = Creature(
-        name=creature_data.name,
-        name_en=creature_data.name_en,
-        category=creature_data.category,
-        description=creature_data.description,
-        image_url=creature_data.image_url,
-        rarity=creature_data.rarity,
-        points=creature_data.points
+@router.put("/{creature_id}")
+async def update_creature(creature_id: str):
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="생물 데이터는 정적으로 관리됩니다"
     )
 
-    db.add(creature)
-    db.commit()
-    db.refresh(creature)
 
-    return creature
-
-
-@router.put("/{creature_id}", response_model=CreatureResponse)
-async def update_creature(
-    creature_id: UUID,
-    creature_data: CreatureCreate,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db)
-):
-    """생물 수정 (관리자)"""
-    creature = db.query(Creature).filter(Creature.id == creature_id).first()
-    if not creature:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="생물을 찾을 수 없습니다"
-        )
-
-    creature.name = creature_data.name
-    creature.name_en = creature_data.name_en
-    creature.category = creature_data.category
-    creature.description = creature_data.description
-    creature.image_url = creature_data.image_url
-    creature.rarity = creature_data.rarity
-    creature.points = creature_data.points
-
-    db.commit()
-    db.refresh(creature)
-
-    return creature
-
-
-@router.delete("/{creature_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_creature(
-    creature_id: UUID,
-    admin_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db)
-):
-    """생물 삭제 (관리자)"""
-    creature = db.query(Creature).filter(Creature.id == creature_id).first()
-    if not creature:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="생물을 찾을 수 없습니다"
-        )
-
-    db.delete(creature)
-    db.commit()
+@router.delete("/{creature_id}")
+async def delete_creature(creature_id: str):
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="생물 데이터는 정적으로 관리됩니다"
+    )
