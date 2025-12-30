@@ -76,7 +76,7 @@ class CreatureClassifier:
         mapping: List[Tuple[List[str], Tuple[str, str, str]]] = [
             (["whale shark", "whale_shark"], ("고래상어", "fish", "legendary")),
             (["dolphin", "porpoise"], ("돌고래", "cetacean", "rare")),
-            (["whale"], ("고래", "cetacean", "legendary")),
+            (["whale"], ("고래상어", "fish", "legendary")),
             (["turtle"], ("바다거북", "turtle", "rare")),
             (["spotted seal", "largha"], ("점박이물범", "pinniped", "legendary")),
             (["sea lion"], ("바다사자", "pinniped", "legendary")),

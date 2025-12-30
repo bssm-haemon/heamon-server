@@ -40,13 +40,30 @@ async def create_cleanup(
     before_bytes = await before_photo.read()
     after_bytes = await after_photo.read()
 
-    # 이미지 해시 계산 (실패해도 업로드는 진행)
-    try:
-        before_hash = image_hash_service.compute_hash(before_bytes)
-        after_hash = image_hash_service.compute_hash(after_bytes)
-    except Exception:
-        before_hash = None
-        after_hash = None
+    # 이미지 해시 계산 및 중복/유사도 검사
+    before_hash = image_hash_service.compute_hash(before_bytes)
+    after_hash = image_hash_service.compute_hash(after_bytes)
+
+    before_dup = await image_hash_service.check_duplicate(db, before_bytes, current_user.id)
+    if before_dup["is_duplicate"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Before 사진이 이미 등록된 사진과 유사합니다. 다른 사진을 사용해 주세요."
+        )
+
+    after_dup = await image_hash_service.check_duplicate(db, after_bytes, current_user.id)
+    if after_dup["is_duplicate"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="After 사진이 이미 등록된 사진과 유사합니다. 다른 사진을 사용해 주세요."
+        )
+
+    similarity = image_hash_service.check_similarity_between_hashes(before_hash, after_hash)
+    if similarity["is_similar"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Before/After 사진이 너무 비슷합니다. 다른 각도에서 촬영해 주세요."
+        )
 
     # Supabase Storage에 업로드
     before_url = await storage_service.upload_image(before_bytes, folder="cleanups/before")

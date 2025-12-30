@@ -55,8 +55,14 @@ async def create_sighting(
             detail="존재하지 않는 creature_id 입니다"
         )
 
-    # 이미지 해시 계산
+    # 중복 검사 + 이미지 해시 계산
     image_hash = image_hash_service.compute_hash(image_bytes)
+    dup_result = await image_hash_service.check_duplicate(db, image_bytes, current_user.id)
+    if dup_result["is_duplicate"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 업로드된 사진입니다. 다른 사진을 사용해 주세요."
+        )
 
     # Supabase Storage에 업로드
     photo_url = await storage_service.upload_image(image_bytes, folder="sightings")

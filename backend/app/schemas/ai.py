@@ -27,3 +27,5 @@ class DuplicateCheckResponse(BaseModel):
     is_duplicate: bool
     similar_image_id: str | None
     hash: str
+    is_same_user: bool | None = None
+    distance: int | None = None

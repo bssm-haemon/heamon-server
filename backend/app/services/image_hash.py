@@ -9,7 +9,7 @@ from PIL import Image, UnidentifiedImageError
 from fastapi import HTTPException, status
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+
 from app.models.sighting import Sighting
 from app.models.cleanup import Cleanup
 
@@ -79,7 +79,8 @@ class ImageHashService:
                         "is_duplicate": True,
                         "similar_image_id": str(sighting_id),
                         "hash": new_hash,
-                        "is_same_user": str(existing_user_id) == str(user_id)
+                        "is_same_user": str(existing_user_id) == str(user_id),
+                        "distance": distance,
                     }
 
         for cleanup_id, existing_hash, existing_user_id in cleanup_before_hashes + cleanup_after_hashes:
@@ -90,13 +91,24 @@ class ImageHashService:
                         "is_duplicate": True,
                         "similar_image_id": str(cleanup_id),
                         "hash": new_hash,
-                        "is_same_user": str(existing_user_id) == str(user_id)
+                        "is_same_user": str(existing_user_id) == str(user_id),
+                        "distance": distance,
                     }
 
         return {
             "is_duplicate": False,
             "similar_image_id": None,
-            "hash": new_hash
+            "hash": new_hash,
+            "is_same_user": False,
+            "distance": None,
+        }
+
+    def check_similarity_between_hashes(self, hash1: str, hash2: str) -> dict:
+        """두 해시 간 유사도 검사 (Before/After 등)."""
+        distance = self._hamming_distance(hash1, hash2)
+        return {
+            "distance": distance,
+            "is_similar": distance < self.SIMILARITY_THRESHOLD
         }
 
 

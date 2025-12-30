@@ -100,5 +100,7 @@ async def check_duplicate(
     return DuplicateCheckResponse(
         is_duplicate=result["is_duplicate"],
         similar_image_id=result["similar_image_id"],
-        hash=result["hash"]
+        hash=result["hash"],
+        is_same_user=result.get("is_same_user"),
+        distance=result.get("distance"),
     )
