@@ -4,6 +4,7 @@ from app.services.trash_ai import TrashClassifier
 from app.services.image_hash import ImageHashService
 from app.services.point_service import PointService
 from app.services.storage import StorageService
+from app.services.market_service import MarketService
 
 __all__ = [
     "CreatureClassifier",
@@ -11,4 +12,5 @@ __all__ = [
     "ImageHashService",
     "PointService",
     "StorageService",
+    "MarketService",
 ]

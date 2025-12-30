@@ -1,6 +1,6 @@
 """API 라우터"""
 from fastapi import APIRouter
-from app.api import auth, users, sightings, cleanups, creatures, collection, badges, rankings, maps, ai
+from app.api import auth, users, sightings, cleanups, creatures, collection, badges, rankings, maps, ai, market, aquarium
 
 api_router = APIRouter()
 
@@ -14,3 +14,5 @@ api_router.include_router(badges.router, prefix="/badges", tags=["뱃지"])
 api_router.include_router(rankings.router, prefix="/rankings", tags=["랭킹"])
 api_router.include_router(maps.router, prefix="/maps", tags=["지도"])
 api_router.include_router(ai.router, prefix="/ai", tags=["AI 분류"])
+api_router.include_router(market.router)
+api_router.include_router(aquarium.router)

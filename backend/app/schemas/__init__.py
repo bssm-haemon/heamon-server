@@ -10,6 +10,8 @@ from app.schemas.ai import (
     CleanupVerifyResponse,
     DuplicateCheckResponse,
 )
+from app.schemas.market import MarketItem, MarketListResponse, PurchaseRequest, PurchaseResponse
+from app.schemas.aquarium import AquariumItem, AquariumListResponse
 
 __all__ = [
     "Message",
@@ -32,4 +34,10 @@ __all__ = [
     "TrashClassifyResponse",
     "CleanupVerifyResponse",
     "DuplicateCheckResponse",
+    "MarketItem",
+    "MarketListResponse",
+    "PurchaseRequest",
+    "PurchaseResponse",
+    "AquariumItem",
+    "AquariumListResponse",
 ]
