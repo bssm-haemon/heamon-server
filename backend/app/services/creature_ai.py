@@ -13,6 +13,20 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 MIN_CONFIDENT_SCORE = 0.35  # top-1 점수가 낮으면 추정으로 표시
+# 허용하는 생물 집합 (요구된 11종만)
+ALLOWED_CREATURES = {
+    "가자미",
+    "고등어",
+    "돌고래",
+    "오징어",
+    "점박이물범",
+    "고래상어",
+    "바다거북",
+    "해마",
+    "복어",
+    "꽁치",
+    "문어",
+}
 
 RARITY_MAP = {
     "조개": "common",
@@ -54,6 +68,7 @@ class CreatureClassifier:
             ("꽁치", "fish", "common"),
             ("오징어", "mollusk", "rare"),
             ("문어", "mollusk", "rare"),
+            ("가자미", "fish", "common"),
         ]
 
     def _load_model(self):
@@ -79,20 +94,16 @@ class CreatureClassifier:
             (["whale"], ("고래상어", "fish", "legendary")),
             (["turtle"], ("바다거북", "turtle", "rare")),
             (["spotted seal", "largha"], ("점박이물범", "pinniped", "legendary")),
-            (["sea lion"], ("바다사자", "pinniped", "legendary")),
-            (["seal"], ("물범", "pinniped", "legendary")),
-            (["ray", "stingray"], ("가오리", "fish", "rare")),
-            (["shark"], ("돌고래", "cetacean", "rare")),
+            (["seal"], ("점박이물범", "pinniped", "legendary")),
+            (["shark"], ("고래상어", "fish", "legendary")),
             (["puffer", "fugu"], ("복어", "fish", "rare")),
             (["mackerel"], ("고등어", "fish", "common")),
             (["saury"], ("꽁치", "fish", "common")),
             (["seahorse"], ("해마", "fish", "rare")),
             (["octopus"], ("문어", "mollusk", "rare")),
             (["squid"], ("오징어", "mollusk", "rare")),
-            (["clam", "shell"], ("조개", "mollusk", "common")),
-            (["jellyfish"], ("해파리", "jellyfish", "common")),
-            (["crab"], ("게", "crustacean", "common")),
-            (["shrimp", "prawn"], ("새우", "crustacean", "common")),
+            (["flounder", "flatfish"], ("가자미", "fish", "common")),
+            (["ray", "stingray"], ("가자미", "fish", "common")),
         ]
 
         for keywords, mapped in mapping:
@@ -131,6 +142,8 @@ class CreatureClassifier:
                 if mapped is None:
                     continue
                 creature, category, rarity = mapped
+                if creature not in ALLOWED_CREATURES:
+                    continue
                 candidates.append(
                     {
                         "creature": creature,
